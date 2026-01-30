@@ -1,98 +1,99 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, View, TextInput, Platform, Linking, Text } from 'react-native';
+import { DATA_WISATA, Wisata } from '../../src/data/wisataData';
+import PlaceCard from '../../src/components/PlaceCard';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+// 1. Inisialisasi variabel Map secara dinamis
+let MapView: any = View;
+let Marker: any = View;
+let PROVIDER_GOOGLE: any = null;
 
-export default function HomeScreen() {
+// 2. Hanya impor react-native-maps jika BUKAN di Web
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+}
+
+export default function MapScreen() {
+  const [selectedPlace, setSelectedPlace] = useState<Wisata | null>(null);
+  const [search, setSearch] = useState('');
+
+  // 3. Tampilan khusus jika dibuka di Web agar tidak crash
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.webContainer}>
+        <Text style={styles.webText}>
+          Peta Mobile tidak tersedia di Browser.{"\n"}
+          Silakan buka melalui aplikasi Expo Go di HP Anda.
+        </Text>
+      </View>
+    );
+  }
+
+  const openMaps = (lat: number, lng: number, name: string) => {
+    const url = Platform.select({
+      ios: `maps:0,0?q=${name}@${lat},${lng}`,
+      android: `geo:0,0?q=${lat},${lng}(${name})`,
+    });
+    if (url) Linking.openURL(url);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={styles.map}
+        initialRegion={{
+          latitude: -6.9889,
+          longitude: 106.5514,
+          latitudeDelta: 0.5,
+          longitudeDelta: 0.5,
+        }}
+      >
+        {DATA_WISATA.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map((place) => (
+          <Marker
+            key={place.id}
+            coordinate={{ latitude: place.lat, longitude: place.lng }}
+            onPress={() => setSelectedPlace(place)}
+          />
+        ))}
+      </MapView>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <View style={styles.searchContainer}>
+        <TextInput
+          placeholder="Cari Wisata Sukabumi..."
+          style={styles.input}
+          onChangeText={setSearch}
+          placeholderTextColor="#94a3b8"
+        />
+      </View>
+
+      <PlaceCard
+        place={selectedPlace}
+        onClose={() => setSelectedPlace(null)}
+        onNavigate={() => selectedPlace && openMaps(selectedPlace.lat, selectedPlace.lng, selectedPlace.name)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: { flex: 1 },
+  map: { flex: 1 },
+  searchContainer: { 
+    position: 'absolute', 
+    top: 60, 
+    width: '90%', 
+    alignSelf: 'center', 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    elevation: 5, 
+    paddingHorizontal: 15,
+    zIndex: 10 
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  input: { height: 50, color: '#1e293b' },
+  webContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
+  webText: { textAlign: 'center', fontSize: 16, color: '#64748b', lineHeight: 24 }
 });
