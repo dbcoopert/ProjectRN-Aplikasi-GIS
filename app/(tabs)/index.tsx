@@ -1,99 +1,112 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TextInput, Platform, Linking, Text } from 'react-native';
-import { DATA_WISATA, Wisata } from '../../src/data/wisataData';
-import PlaceCard from '../../src/components/PlaceCard';
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  SafeAreaView,
+} from "react-native";
+import TaskItem from "../../src/components/TaskItem";
 
-// 1. Inisialisasi variabel Map secara dinamis
-let MapView: any = View;
-let Marker: any = View;
-let PROVIDER_GOOGLE: any = null;
-
-// 2. Hanya impor react-native-maps jika BUKAN di Web
-if (Platform.OS !== 'web') {
-  const Maps = require('react-native-maps');
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+interface Task {
+  id: string;
+  text: string;
 }
 
-export default function MapScreen() {
-  const [selectedPlace, setSelectedPlace] = useState<Wisata | null>(null);
-  const [search, setSearch] = useState('');
+export default function App() {
+  const [task, setTask] = useState("");
+  const [taskList, setTaskList] = useState<Task[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // 3. Tampilan khusus jika dibuka di Web agar tidak crash
-  if (Platform.OS === 'web') {
-    return (
-      <View style={styles.webContainer}>
-        <Text style={styles.webText}>
-          Peta Mobile tidak tersedia di Browser.{"\n"}
-          Silakan buka melalui aplikasi Expo Go di HP Anda.
-        </Text>
-      </View>
-    );
-  }
+  // CREATE atau UPDATE
+  const handleSaveTask = () => {
+    if (task.trim() === "") return;
 
-  const openMaps = (lat: number, lng: number, name: string) => {
-    const url = Platform.select({
-      ios: `maps:0,0?q=${name}@${lat},${lng}`,
-      android: `geo:0,0?q=${lat},${lng}(${name})`,
-    });
-    if (url) Linking.openURL(url);
+    if (editingId) {
+      // Logic Update
+      setTaskList(
+        taskList.map((t) => (t.id === editingId ? { ...t, text: task } : t)),
+      );
+      setEditingId(null);
+    } else {
+      // Logic Create
+      const newTask = { id: Date.now().toString(), text: task };
+      setTaskList([...taskList, newTask]);
+    }
+    setTask("");
+  };
+
+  // DELETE
+  const deleteTask = (id: string) => {
+    setTaskList(taskList.filter((t) => t.id !== id));
+  };
+
+  // Persiapan EDIT
+  const startEdit = (item: Task) => {
+    setTask(item.text);
+    setEditingId(item.id);
   };
 
   return (
-    <View style={styles.container}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={{
-          latitude: -6.9889,
-          longitude: 106.5514,
-          latitudeDelta: 0.5,
-          longitudeDelta: 0.5,
-        }}
-      >
-        {DATA_WISATA.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).map((place) => (
-          <Marker
-            key={place.id}
-            coordinate={{ latitude: place.lat, longitude: place.lng }}
-            onPress={() => setSelectedPlace(place)}
-          />
-        ))}
-      </MapView>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Task Manager React Native</Text>
 
-      <View style={styles.searchContainer}>
-        <TextInput
-          placeholder="Cari Wisata Sukabumi..."
-          style={styles.input}
-          onChangeText={setSearch}
-          placeholderTextColor="#94a3b8"
+        <View style={styles.inputGroup}>
+          <TextInput
+            style={styles.input}
+            placeholder="Ketik tugas baru..."
+            value={task}
+            onChangeText={setTask}
+          />
+          <TouchableOpacity
+            style={[
+              styles.saveBtn,
+              { backgroundColor: editingId ? "#f59e0b" : "#10b981" },
+            ]}
+            onPress={handleSaveTask}
+          >
+            <Text style={styles.saveBtnText}>
+              {editingId ? "Update" : "Tambah"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={taskList}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TaskItem task={item} onDelete={deleteTask} onEdit={startEdit} />
+          )}
+          ListEmptyComponent={<Text style={styles.empty}>Belum ada data.</Text>}
         />
       </View>
-
-      <PlaceCard
-        place={selectedPlace}
-        onClose={() => setSelectedPlace(null)}
-        onNavigate={() => selectedPlace && openMaps(selectedPlace.lat, selectedPlace.lng, selectedPlace.name)}
-      />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  searchContainer: { 
-    position: 'absolute', 
-    top: 60, 
-    width: '90%', 
-    alignSelf: 'center', 
-    backgroundColor: 'white', 
-    borderRadius: 12, 
-    elevation: 5, 
-    paddingHorizontal: 15,
-    zIndex: 10 
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+  content: { padding: 20, maxWidth: 600, alignSelf: "center", width: "100%" },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    color: "#1e293b",
+    textAlign: "center",
   },
-  input: { height: 50, color: '#1e293b' },
-  webContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
-  webText: { textAlign: 'center', fontSize: 16, color: '#64748b', lineHeight: 24 }
+  inputGroup: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  input: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  saveBtn: { paddingHorizontal: 20, justifyContent: "center", borderRadius: 8 },
+  saveBtnText: { color: "white", fontWeight: "bold" },
+  empty: { textAlign: "center", color: "#94a3b8", marginTop: 20 },
 });
